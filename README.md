@@ -51,25 +51,21 @@ With LOCO:
 
 ## Architecture
 
-```
-Customer ticket
-    │
-    ▼
-┌─────────┐     ┌───────────┐     ┌──────────────┐
-│ Triage  │ ──► │  Support   │ or │  Escalation   │
-│ (flash) │     │  (flash)   │    │  (2.5-pro)    │
-└────┬────┘     └─────┬──────┘    └──────┬────────┘
-     │                │                   │
-     └────────────────┴───────────────────┘
-                      │
-                      ▼
-            ┌──────────────────┐
-            │  LOCO Scheduler   │
-            │  capacity=3 slots │
-            └────────┬─────────┘
-                     │
-                     ▼
-            ┌──────────────────┐
-            │   Gemini API      │
-            └──────────────────┘
+```mermaid
+graph TD
+    T["Customer Ticket"] --> TRIAGE["Triage\n(gemini-2.0-flash)"]
+    TRIAGE -->|simple| SUPPORT["Support\n(gemini-2.0-flash)"]
+    TRIAGE -->|complex| ESCALATION["Escalation\n(gemini-2.5-pro)"]
+
+    TRIAGE --> LOCO
+    SUPPORT --> LOCO
+    ESCALATION --> LOCO
+
+    LOCO["LOCO Scheduler\ncapacity = 3 slots"] --> API["Gemini API"]
+
+    style TRIAGE fill:#64B5F6,color:#fff,stroke:#64B5F6
+    style SUPPORT fill:#81C784,color:#fff,stroke:#81C784
+    style ESCALATION fill:#E57373,color:#fff,stroke:#E57373
+    style LOCO fill:#e65100,color:#fff,stroke:#e65100
+    style API fill:#6c757d,color:#fff,stroke:#6c757d
 ```
