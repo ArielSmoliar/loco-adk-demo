@@ -44,7 +44,7 @@ async def process_ticket(
 ) -> dict:
     """Process one ticket through the triage → route → respond pipeline."""
 
-    # Step 1: Triage — classify the ticket
+    # Step 1: Triage -- classify the ticket
     triage_ctx = type("Ctx", (), {"agent_name": "triage", "model": "gemini-2.0-flash"})()
     await adapter.before_model(triage_ctx, None)
 
@@ -104,7 +104,7 @@ async def main(capacity: int = 3):
     print(f"Tickets: {len(TICKETS)}")
     print(f"{'='*60}\n")
 
-    # Process all tickets concurrently — LOCO handles contention
+    # Process all tickets concurrently -- LOCO handles contention
     tasks = []
     for i, ticket in enumerate(TICKETS):
         session = await session_service.create_session(

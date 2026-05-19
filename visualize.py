@@ -1,4 +1,4 @@
-"""Visualize LOCO scheduling — run the mock demo and plot the results.
+"""Visualize LOCO scheduling -- run the mock demo and plot the results.
 
 Generates 3 charts:
 1. Timeline: who held the resource at each tick (Gantt-style)
@@ -111,7 +111,7 @@ async def run_and_collect(capacity: int):
 def plot_results(scheduler, events, grant_timeline, capacity):
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     fig.suptitle(
-        f"LOCO-Agent Scheduling Visualization — {len(TICKETS)} tickets, "
+        f"LOCO-Agent Scheduling Visualization -- {len(TICKETS)} tickets, "
         f"capacity={capacity}",
         fontsize=14, fontweight="bold",
     )

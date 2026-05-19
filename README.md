@@ -1,4 +1,4 @@
-# LOCO-ADK Demo — Customer Support System
+# LOCO-ADK Demo -- Customer Support System
 
 3 Google ADK agents sharing a bounded Gemini API pool, scheduled by [LOCO-Agent](https://github.com/ArielSmoliar/loco-agent).
 
@@ -8,7 +8,7 @@
 | **support** | gemini-2.0-flash | Responds to simple tickets | 1.0 |
 | **escalation** | gemini-2.5-pro | Handles complex issues with deep reasoning | 3.0 |
 
-When all 3 agents spike simultaneously, LOCO decides who gets the API slot next — escalations get priority, but triage never starves.
+When all 3 agents spike simultaneously, LOCO decides who gets the API slot next -- escalations get priority, but triage never starves.
 
 ## Quick Start (mock mode, no API key needed)
 
@@ -23,8 +23,8 @@ python run_mock.py
 Try different capacity settings to see contention:
 
 ```bash
-python run_mock.py --capacity 1   # heavy contention — one slot, 8 tickets
-python run_mock.py --capacity 10  # no contention — 10 slots, 8 tickets
+python run_mock.py --capacity 1   # heavy contention -- one slot, 8 tickets
+python run_mock.py --capacity 10  # no contention -- 10 slots, 8 tickets
 ```
 
 ## Live Mode (with Gemini API)
@@ -44,10 +44,10 @@ Without LOCO, all 3 agents hit the Gemini API blindly. Under load:
 - No visibility into which agent is spending how much
 
 With LOCO:
-- **Bounded concurrency** — `capacity=3` means max 3 API calls at once
-- **Automatic priority** — escalation (weight=3) outscores triage (weight=1)
-- **No starvation** — triage still completes, just waits when slots are full
-- **Cost tracking** — `scheduler.metrics.cost_by_agent()` shows per-agent spend
+- **Bounded concurrency** -- `capacity=3` means max 3 API calls at once
+- **Automatic priority** -- escalation (weight=3) outscores triage (weight=1)
+- **No starvation** -- triage still completes, just waits when slots are full
+- **Cost tracking** -- `scheduler.metrics.cost_by_agent()` shows per-agent spend
 
 ## Architecture
 

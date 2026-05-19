@@ -3,7 +3,7 @@
 Wraps ADK agent invocations with LOCO acquire/release so that:
 - All 3 agents share a bounded Gemini API pool
 - Escalation (expensive model) gets priority when competing with triage
-- No agent starves — even cheap triage calls eventually get through
+- No agent starves -- even cheap triage calls eventually get through
 - Every call is logged with cost and scheduling metadata
 """
 

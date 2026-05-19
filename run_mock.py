@@ -1,4 +1,4 @@
-"""Mock version — runs the full LOCO scheduling without a Gemini API key.
+"""Mock version -- runs the full LOCO scheduling without a Gemini API key.
 
 Same architecture as run.py but with simulated LLM responses.
 Use this to verify the scheduling behavior before connecting a live API.
@@ -34,7 +34,7 @@ async def process_ticket_mock(adapter, ticket: str, classification: str, ticket_
     """Simulate the triage → route → respond pipeline with mock LLM calls.
 
     Each ticket gets unique agent IDs (triage-0, support-0) so they can
-    compete independently in the scheduler — same as real ADK where each
+    compete independently in the scheduler -- same as real ADK where each
     runner session is a separate agent instance.
     """
 
@@ -105,7 +105,7 @@ async def main(capacity: int = 3):
     print(f"\nWhat LOCO did:")
     print(f"  - {len(TICKETS)} tickets processed through {capacity} API slots")
     print(f"  - Escalation (gemini-2.5-pro, weight=3) got priority over triage (weight=1)")
-    print(f"  - No rate limit errors — scheduler held agents until slots opened")
+    print(f"  - No rate limit errors -- scheduler held agents until slots opened")
     print(f"  - Cost tracked per agent for billing visibility")
 
 
