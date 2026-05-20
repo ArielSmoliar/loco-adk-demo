@@ -12,7 +12,7 @@ from google.adk import Agent
 
 triage_agent = Agent(
     name="triage",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     instruction="""You are a customer support triage agent.
     Read the incoming ticket and classify it:
     - "simple": greeting, FAQ, status check → route to support agent
@@ -23,7 +23,7 @@ triage_agent = Agent(
 
 support_agent = Agent(
     name="support",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     instruction="""You are a friendly customer support agent.
     Draft a helpful, concise response to the customer's issue.
     Keep responses under 3 sentences. Be warm and professional.""",

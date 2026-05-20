@@ -40,7 +40,7 @@ async def process_ticket_mock(adapter, ticket: str, classification: str, ticket_
 
     # Step 1: Triage (cheap model)
     triage_name = f"triage-{ticket_id}"
-    triage_ctx = type("Ctx", (), {"agent_name": triage_name, "model": "gemini-2.0-flash"})()
+    triage_ctx = type("Ctx", (), {"agent_name": triage_name, "model": "gemini-2.5-flash"})()
     await adapter.before_model(triage_ctx, None)
     await asyncio.sleep(random.uniform(0.05, 0.15))  # simulate Gemini latency
     await adapter.after_model(triage_ctx, classification)
@@ -51,7 +51,7 @@ async def process_ticket_mock(adapter, ticket: str, classification: str, ticket_
         target_model = "gemini-2.5-pro"
     else:
         target_name = f"support-{ticket_id}"
-        target_model = "gemini-2.0-flash"
+        target_model = "gemini-2.5-flash"
 
     target_ctx = type("Ctx", (), {"agent_name": target_name, "model": target_model})()
     await adapter.before_model(target_ctx, None)

@@ -1,4 +1,4 @@
-"""Run the LOCO-scheduled customer support system.
+"""Run the LOCO-scheduled customer support system with live Gemini API.
 
 Sends a batch of customer tickets through 3 ADK agents (triage, support,
 escalation), all sharing a bounded Gemini API pool via LOCO scheduling.
@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 
+from google import genai
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 
@@ -36,48 +37,60 @@ TICKETS = [
 ]
 
 
+def make_user_content(text: str) -> genai.types.Content:
+    """Create a user message Content object for ADK v2."""
+    return genai.types.Content(
+        role="user",
+        parts=[genai.types.Part(text=text)],
+    )
+
+
+async def run_agent(runner: Runner, user_id: str, session_id: str, message: str) -> str:
+    """Run an ADK agent and collect the text response."""
+    text_parts = []
+    async for event in runner.run_async(
+        user_id=user_id,
+        session_id=session_id,
+        new_message=make_user_content(message),
+    ):
+        if event.content and event.content.parts:
+            for part in event.content.parts:
+                if hasattr(part, "text") and part.text:
+                    text_parts.append(part.text)
+    return "".join(text_parts)
+
+
 async def process_ticket(
-    runner: Runner,
+    triage_runner: Runner,
+    support_runner: Runner,
+    escalation_runner: Runner,
     adapter,
     ticket: str,
-    session_id: str,
+    ticket_id: int,
 ) -> dict:
-    """Process one ticket through the triage → route → respond pipeline."""
+    """Process one ticket through the triage -> route -> respond pipeline."""
+
+    user_id = f"customer-{ticket_id}"
+    session_id = f"session-{ticket_id}"
 
     # Step 1: Triage -- classify the ticket
-    triage_ctx = type("Ctx", (), {"agent_name": "triage", "model": "gemini-2.0-flash"})()
+    triage_ctx = type("Ctx", (), {"agent_name": f"triage-{ticket_id}", "model": "gemini-2.5-flash"})()
     await adapter.before_model(triage_ctx, None)
 
-    triage_response = await runner.run_async(
-        agent=triage_agent,
-        session_id=session_id,
-        user_message=f"Classify this ticket: {ticket}",
-    )
-    triage_text = ""
-    async for event in triage_response:
-        if hasattr(event, "text"):
-            triage_text += event.text
+    triage_text = await run_agent(triage_runner, user_id, f"{session_id}-triage", f"Classify this ticket: {ticket}")
 
     await adapter.after_model(triage_ctx, triage_text)
 
     # Step 2: Route to support or escalation based on triage
     is_complex = "complex" in triage_text.lower()
-    target_agent = escalation_agent if is_complex else support_agent
+    target_runner = escalation_runner if is_complex else support_runner
     target_name = "escalation" if is_complex else "support"
-    target_model = "gemini-2.5-pro" if is_complex else "gemini-2.0-flash"
+    target_model = "gemini-2.5-pro" if is_complex else "gemini-2.5-flash"
 
-    route_ctx = type("Ctx", (), {"agent_name": target_name, "model": target_model})()
+    route_ctx = type("Ctx", (), {"agent_name": f"{target_name}-{ticket_id}", "model": target_model})()
     await adapter.before_model(route_ctx, None)
 
-    response = await runner.run_async(
-        agent=target_agent,
-        session_id=session_id,
-        user_message=ticket,
-    )
-    response_text = ""
-    async for event in response:
-        if hasattr(event, "text"):
-            response_text += event.text
+    response_text = await run_agent(target_runner, user_id, f"{session_id}-{target_name}", ticket)
 
     await adapter.after_model(route_ctx, response_text)
 
@@ -93,13 +106,28 @@ async def main(capacity: int = 3):
     scheduler, adapter = create_scheduler(capacity=capacity)
 
     session_service = InMemorySessionService()
-    runner = Runner(
-        agent=triage_agent,  # default agent for the runner
+
+    # Create one runner per agent type (ADK v2 pattern)
+    triage_runner = Runner(
+        agent=triage_agent,
         app_name="loco-support-demo",
         session_service=session_service,
+        auto_create_session=True,
+    )
+    support_runner = Runner(
+        agent=support_agent,
+        app_name="loco-support-demo",
+        session_service=session_service,
+        auto_create_session=True,
+    )
+    escalation_runner = Runner(
+        agent=escalation_agent,
+        app_name="loco-support-demo",
+        session_service=session_service,
+        auto_create_session=True,
     )
 
-    print(f"LOCO-ADK Support Demo")
+    print(f"LOCO-ADK Support Demo (live Gemini API)")
     print(f"Gemini API capacity: {capacity} concurrent slots")
     print(f"Tickets: {len(TICKETS)}")
     print(f"{'='*60}\n")
@@ -107,11 +135,10 @@ async def main(capacity: int = 3):
     # Process all tickets concurrently -- LOCO handles contention
     tasks = []
     for i, ticket in enumerate(TICKETS):
-        session = await session_service.create_session(
-            app_name="loco-support-demo",
-            user_id=f"customer-{i}",
-        )
-        tasks.append(process_ticket(runner, adapter, ticket, session.id))
+        tasks.append(process_ticket(
+            triage_runner, support_runner, escalation_runner,
+            adapter, ticket, i,
+        ))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -121,9 +148,9 @@ async def main(capacity: int = 3):
             print(f"ERROR: {r}\n")
             continue
         print(f"Ticket:    {r['ticket'][:60]}")
-        print(f"Triage:    {r['triage']}")
+        print(f"Triage:    {r['triage'][:80]}")
         print(f"Routed to: {r['routed_to']}")
-        print(f"Response:  {r['response'][:100]}...")
+        print(f"Response:  {r['response'][:120]}...")
         print()
 
     # Scheduling metrics

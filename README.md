@@ -4,8 +4,8 @@
 
 | Agent | Model | Role | Weight |
 |-------|-------|------|--------|
-| **triage** | gemini-2.0-flash | Classifies tickets (simple/complex) | 1.0 |
-| **support** | gemini-2.0-flash | Responds to simple tickets | 1.0 |
+| **triage** | gemini-2.5-flash | Classifies tickets (simple/complex) | 1.0 |
+| **support** | gemini-2.5-flash | Responds to simple tickets | 1.0 |
 | **escalation** | gemini-2.5-pro | Handles complex issues with deep reasoning | 3.0 |
 
 When all 3 agents spike simultaneously, LOCO decides who gets the API slot next -- escalations get priority, but triage never starves.
@@ -53,8 +53,8 @@ With LOCO:
 
 ```mermaid
 graph TD
-    T["Customer Ticket"] --> TRIAGE["Triage\n(gemini-2.0-flash)"]
-    TRIAGE -->|simple| SUPPORT["Support\n(gemini-2.0-flash)"]
+    T["Customer Ticket"] --> TRIAGE["Triage\n(gemini-2.5-flash)"]
+    TRIAGE -->|simple| SUPPORT["Support\n(gemini-2.5-flash)"]
     TRIAGE -->|complex| ESCALATION["Escalation\n(gemini-2.5-pro)"]
 
     TRIAGE --> LOCO
