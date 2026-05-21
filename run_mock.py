@@ -15,6 +15,8 @@ import argparse
 import asyncio
 import random
 
+import loco
+
 from support_agents.scheduler import create_scheduler
 
 
@@ -30,45 +32,54 @@ TICKETS = [
 ]
 
 
-async def process_ticket_mock(adapter, ticket: str, classification: str, ticket_id: int):
-    """Simulate the triage → route → respond pipeline with mock LLM calls.
+async def simulate_llm(delay_min: float = 0.05, delay_max: float = 0.15):
+    """Simulate LLM latency."""
+    await asyncio.sleep(random.uniform(delay_min, delay_max))
+
+
+async def process_ticket_mock(ticket: str, classification: str, ticket_id: int):
+    """Simulate the triage -> route -> respond pipeline with loco.wrap().
 
     Each ticket gets unique agent IDs (triage-0, support-0) so they can
     compete independently in the scheduler -- same as real ADK where each
     runner session is a separate agent instance.
     """
 
-    # Step 1: Triage (cheap model)
-    triage_name = f"triage-{ticket_id}"
-    triage_ctx = type("Ctx", (), {"agent_name": triage_name, "model": "gemini-2.5-flash"})()
-    await adapter.before_model(triage_ctx, None)
-    await asyncio.sleep(random.uniform(0.05, 0.15))  # simulate Gemini latency
-    await adapter.after_model(triage_ctx, classification)
+    # Step 1: Triage (cheap model, weight=1.5)
+    await loco.wrap(
+        simulate_llm,
+        agent_id=f"triage-{ticket_id}",
+        weight=1.5,  # gemini-2.5-flash
+        delay_min=0.05,
+        delay_max=0.15,
+    )
 
     # Step 2: Route to support or escalation
     if classification == "complex":
-        target_name = f"escalation-{ticket_id}"
-        target_model = "gemini-2.5-pro"
+        agent_id = f"escalation-{ticket_id}"
+        weight = 3.0  # gemini-2.5-pro
     else:
-        target_name = f"support-{ticket_id}"
-        target_model = "gemini-2.5-flash"
+        agent_id = f"support-{ticket_id}"
+        weight = 1.5  # gemini-2.5-flash
 
-    target_ctx = type("Ctx", (), {"agent_name": target_name, "model": target_model})()
-    await adapter.before_model(target_ctx, None)
-    await asyncio.sleep(random.uniform(0.1, 0.3))  # simulate Gemini latency
-    mock_response = f"[Mock response for ticket #{ticket_id}]"
-    await adapter.after_model(target_ctx, mock_response)
+    await loco.wrap(
+        simulate_llm,
+        agent_id=agent_id,
+        weight=weight,
+        delay_min=0.1,
+        delay_max=0.3,
+    )
 
     return {
         "ticket_id": ticket_id,
         "ticket": ticket,
         "triage": classification,
-        "routed_to": target_name.split("-")[0],  # "support" or "escalation"
+        "routed_to": agent_id.split("-")[0],  # "support" or "escalation"
     }
 
 
 async def main(capacity: int = 3):
-    scheduler, adapter = create_scheduler(capacity=capacity)
+    scheduler = create_scheduler(capacity=capacity)
 
     print(f"LOCO-ADK Support Demo (mock mode)")
     print(f"Gemini API capacity: {capacity} concurrent slots")
@@ -77,14 +88,14 @@ async def main(capacity: int = 3):
 
     # Process all tickets concurrently
     tasks = [
-        process_ticket_mock(adapter, ticket, cls, i)
+        process_ticket_mock(ticket, cls, i)
         for i, (ticket, cls) in enumerate(TICKETS)
     ]
     results = await asyncio.gather(*tasks)
 
     # Print results
     for r in results:
-        print(f"  #{r['ticket_id']}: [{r['triage']:>7}] → {r['routed_to']:<12} | {r['ticket'][:50]}")
+        print(f"  #{r['ticket_id']}: [{r['triage']:>7}] -> {r['routed_to']:<12} | {r['ticket'][:50]}")
 
     # Scheduling metrics
     print(f"\n{'='*60}")
@@ -104,7 +115,7 @@ async def main(capacity: int = 3):
     # Show what LOCO prevented
     print(f"\nWhat LOCO did:")
     print(f"  - {len(TICKETS)} tickets processed through {capacity} API slots")
-    print(f"  - Escalation (gemini-2.5-pro, weight=3) got priority over triage (weight=1)")
+    print(f"  - Escalation (gemini-2.5-pro, weight=3) got priority over triage (weight=1.5)")
     print(f"  - No rate limit errors -- scheduler held agents until slots opened")
     print(f"  - Cost tracked per agent for billing visibility")
 

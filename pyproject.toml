@@ -9,7 +9,7 @@ description = "Customer support demo: Google ADK agents scheduled by LOCO-Agent"
 requires-python = ">=3.10"
 dependencies = [
     "google-adk>=1.0.0",
-    "loco-agent @ git+https://github.com/ArielSmoliar/loco-agent.git",
+    "loco-agent>=0.2.2",
 ]
 
 [project.optional-dependencies]

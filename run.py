@@ -20,6 +20,8 @@ from google import genai
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 
+import loco
+
 from support_agents.agents import triage_agent, support_agent, escalation_agent
 from support_agents.scheduler import create_scheduler
 
@@ -64,7 +66,6 @@ async def process_ticket(
     triage_runner: Runner,
     support_runner: Runner,
     escalation_runner: Runner,
-    adapter,
     ticket: str,
     ticket_id: int,
 ) -> dict:
@@ -74,25 +75,36 @@ async def process_ticket(
     session_id = f"session-{ticket_id}"
 
     # Step 1: Triage -- classify the ticket
-    triage_ctx = type("Ctx", (), {"agent_name": f"triage-{ticket_id}", "model": "gemini-2.5-flash"})()
-    await adapter.before_model(triage_ctx, None)
-
-    triage_text = await run_agent(triage_runner, user_id, f"{session_id}-triage", f"Classify this ticket: {ticket}")
-
-    await adapter.after_model(triage_ctx, triage_text)
+    triage_text = await loco.wrap(
+        run_agent,
+        agent_id=f"triage-{ticket_id}",
+        weight=1.5,  # gemini-2.5-flash
+        runner=triage_runner,
+        user_id=user_id,
+        session_id=f"{session_id}-triage",
+        message=f"Classify this ticket: {ticket}",
+    )
 
     # Step 2: Route to support or escalation based on triage
     is_complex = "complex" in triage_text.lower()
-    target_runner = escalation_runner if is_complex else support_runner
-    target_name = "escalation" if is_complex else "support"
-    target_model = "gemini-2.5-pro" if is_complex else "gemini-2.5-flash"
+    if is_complex:
+        target_runner = escalation_runner
+        target_name = "escalation"
+        weight = 3.0  # gemini-2.5-pro
+    else:
+        target_runner = support_runner
+        target_name = "support"
+        weight = 1.5  # gemini-2.5-flash
 
-    route_ctx = type("Ctx", (), {"agent_name": f"{target_name}-{ticket_id}", "model": target_model})()
-    await adapter.before_model(route_ctx, None)
-
-    response_text = await run_agent(target_runner, user_id, f"{session_id}-{target_name}", ticket)
-
-    await adapter.after_model(route_ctx, response_text)
+    response_text = await loco.wrap(
+        run_agent,
+        agent_id=f"{target_name}-{ticket_id}",
+        weight=weight,
+        runner=target_runner,
+        user_id=user_id,
+        session_id=f"{session_id}-{target_name}",
+        message=ticket,
+    )
 
     return {
         "ticket": ticket,
@@ -103,7 +115,7 @@ async def process_ticket(
 
 
 async def main(capacity: int = 3):
-    scheduler, adapter = create_scheduler(capacity=capacity)
+    scheduler = create_scheduler(capacity=capacity)
 
     session_service = InMemorySessionService()
 
@@ -137,7 +149,7 @@ async def main(capacity: int = 3):
     for i, ticket in enumerate(TICKETS):
         tasks.append(process_ticket(
             triage_runner, support_runner, escalation_runner,
-            adapter, ticket, i,
+            ticket, i,
         ))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
